@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Project content (author manuscripts / processed output — not for publication)
+input/
+output/
+
+# Third-party reference material (saved web pages, separately licensed)
+reference-code/
