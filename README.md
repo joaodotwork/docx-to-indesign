@@ -6,6 +6,16 @@ This tool helps prepare DOCX files for clean import into InDesign by:
 2. Cleaning up paragraph breaks and line breaks
 3. Adding markup for formatting that's compatible with InDesign GREP
 
+## Repository Contents
+
+- `docx2indesign.py` — basic converter (paragraph/line break cleanup)
+- `docx2indesign_advanced.py` — advanced converter with formatting markup and a batch UI
+- `endnotes_scripts/` — InDesign JSX and AppleScript scripts for converting endnote markers into real InDesign endnotes
+- `indesign-template/docx2indd-template.indt` — starter InDesign template with paragraph/character styles matching the GREP workflow below
+- `requirements.txt` — Python dependencies
+
+> **Note:** This repository ships the tooling only. Source `.docx` files and the processed output they generate are not included.
+
 ## Prerequisites
 
 - Python 3.6 or higher
@@ -86,6 +96,8 @@ The advanced script adds the following markup that can be processed with InDesig
   - Numbered: `1. item`
 
 ## InDesign GREP Search/Replace
+
+The GREP steps below assume your document already has the matching character and paragraph styles (Bold, Italic, Heading 1, etc.). The included `indesign-template/docx2indd-template.indt` provides these styles as a starting point — open it (or load its styles into your own document) before running the search/replace steps.
 
 After importing the processed text into InDesign (using Unicode UTF-8 encoding), use GREP search/replace to convert the markup to proper formatting:
 
@@ -194,4 +206,4 @@ If the script doesn't convert your endnotes:
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
