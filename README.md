@@ -134,7 +134,7 @@ They then appear in **Edit > Find/Change > GREP tab > Query** dropdown, prefixed
 9. `docx2indd - Block Quote`, `docx2indd - Bibliography`
 10. `docx2indd - Links`
 
-The Block Quote and Bibliography queries (and the `docx+styles`-based markup that feeds them) require the matching `Block Quote` and `Bibliography` paragraph styles in your document; add them to the template if they are missing.
+The Block Quote and Bibliography queries (and the `docx+styles`-based markup that feeds them) require the matching `Block Quote` and `Bibliography` paragraph styles in your document. Run `endnotes_scripts/ensure_template_styles.jsx` once with the template open to create any styles the queries expect but that are missing (existing styles are left untouched), then File > Save to update the template.
 
 Footnotes and endnotes are **not** handled by a query — their bodies have to be moved into the note itself, so use `endnotes_scripts/notes_converter.jsx` for those (see [Footnotes and Endnotes](#footnotes-and-endnotes)).
 

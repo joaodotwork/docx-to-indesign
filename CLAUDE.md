@@ -17,6 +17,7 @@
 - **InDesign Scripts** (in `endnotes_scripts/` folder):
   - `notes_converter.jsx` - Converts both footnote (`[^F(n)]`) and endnote (`[^E(n)]`) markers into native InDesign notes
   - `batch_grep_format.jsx` - Runs every formatting GREP (bold/italic/headings/lists/links) in one pass, in dependency order; style names match the template (`H1`-`H4`, `Bold`, etc.)
+  - `ensure_template_styles.jsx` - Idempotently creates any paragraph/character styles the queries expect but that are missing (e.g. `Block Quote`, `Bibliography`); run with the template open, then save the `.indt`
   - `docx_to_indesign_endnotes.jsx` - Legacy endnote conversion script (`[^(n)](#fnn)` markers)
 - **Saved Find/Change Queries** (`indesign-queries/GREP/`): one XML per conversion, `docx2indd - *`, for stepping through changes interactively. Format mirrors InDesign's own query files; `cstyle`/`pstyle` TextAttribute values must match real style names in the doc.
   - `endnote_converter_2025.jsx` - Updated converter for InDesign 2025
