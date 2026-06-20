@@ -11,6 +11,7 @@ This tool helps prepare DOCX files for clean import into InDesign by:
 - `docx2indesign.py` — basic converter (paragraph/line break cleanup)
 - `docx2indesign_advanced.py` — advanced converter with formatting markup and a batch UI
 - `docx_notes.py` — reads footnote/endnote structure directly from the DOCX so the two kinds stay distinct (pandoc merges them)
+- `normalize_docx_styles.py` — makes paragraph/character style *definitions* consistent across a set of DOCX files without altering any text
 - `endnotes_scripts/` — InDesign JSX and AppleScript scripts: `notes_converter.jsx` (footnotes + endnotes), `batch_grep_format.jsx` (runs every formatting GREP in one pass)
 - `indesign-queries/GREP/` — saved Find/Change queries you can load one at a time from the Find/Change dialog
 - `indesign-template/docx2indd-template.indt` — starter InDesign template with paragraph/character styles matching the GREP workflow below
@@ -92,6 +93,8 @@ The advanced script adds the following markup that can be processed with InDesig
 - Headings: `# Heading 1`, `## Heading 2`, etc.
 - Footnotes: in-text reference `[^F(n)]`, body `[^Fn]: text` under a `====== FOOTNOTES ======` heading
 - Endnotes: in-text reference `[^E(n)]`, body `[^En]: text` under a `====== ENDNOTES ======` heading
+- Block quotes: `> text` (from Word's Block Quote / Quote styles)
+- Bibliography: `[BIB] text` (from Word's Bibliography style, e.g. Zotero reference lists)
 - Line breaks: `\n` (escaped newline)
 - Links: `[text](url)`
 - Lists:
@@ -128,7 +131,10 @@ They then appear in **Edit > Find/Change > GREP tab > Query** dropdown, prefixed
 6. `docx2indd - Subscript`
 7. `docx2indd - Heading 1` … `Heading 4`
 8. `docx2indd - Bulleted List`, `docx2indd - Numbered List`
-9. `docx2indd - Links`
+9. `docx2indd - Block Quote`, `docx2indd - Bibliography`
+10. `docx2indd - Links`
+
+The Block Quote and Bibliography queries (and the `docx+styles`-based markup that feeds them) require the matching `Block Quote` and `Bibliography` paragraph styles in your document; add them to the template if they are missing.
 
 Footnotes and endnotes are **not** handled by a query — their bodies have to be moved into the note itself, so use `endnotes_scripts/notes_converter.jsx` for those (see [Footnotes and Endnotes](#footnotes-and-endnotes)).
 
@@ -231,6 +237,33 @@ To convert both kinds into native InDesign notes in one pass, run `endnotes_scri
 4. It inserts native footnotes (via `InsertionPoint.footnotes.add()`) and endnotes (via `Story.endnotes.add()`, with a Convert-To-Endnote menu fallback), sets each note's text, and deletes the trailing note sections.
 
 > Note: HTML/RTF inputs cannot carry the footnote/endnote distinction, so they fall back to the legacy `[^(n)](#fnn)` markers handled by the older endnote scripts below.
+
+## Normalizing Styles Across Files
+
+When a project is split across many DOCX files (e.g. one per chapter), the same
+Word style often drifts in its definition from file to file — `Heading 2` might
+have a different font or spacing in each. `normalize_docx_styles.py` copies the
+style *definitions* from one reference file into the others so they match, **without
+touching any text**:
+
+```bash
+python normalize_docx_styles.py chapters/*.docx \
+  --reference "chapters/Chapter 1.docx" -o ./normalized
+```
+
+For every style id a target shares with the reference, the target's definition is
+replaced with the reference's; ids the reference lacks are left alone, so no
+paragraph loses the style it points at. Each output file is verified to be
+byte-for-byte identical to its source in every part except `word/styles.xml`, so
+content (text, footnotes, fields, hyperlinks) is provably unchanged. Use
+`--dry-run` to preview, and `--include-defaults` to also copy the reference's
+document defaults.
+
+Note: for the InDesign pipeline this is largely optional — pandoc maps by
+semantic role (every `Heading 2` variant becomes `## ` → InDesign `H2`
+regardless of its definition). It is most useful when you also want the Word
+files themselves to look consistent, or plan to merge them. It only affects
+*named* styles, not direct/manual formatting.
 
 ## Using the Legacy Endnote Script
 

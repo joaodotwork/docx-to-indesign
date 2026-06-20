@@ -3,6 +3,7 @@
 ## Commands
 - Run basic converter: `python docx2indesign.py input.docx [output.txt]`
 - Run advanced converter: `python docx2indesign_advanced.py input.docx [input2.docx ...] [-o OUTPUT_DIR] [-r]`
+- Normalize styles across files: `python normalize_docx_styles.py target.docx ... --reference ref.docx -o OUTPUT_DIR [--dry-run]`
 - Install dependencies: `pip install -r requirements.txt`
 - Install pandoc (macOS): `brew install pandoc`
 - Install pandoc (Linux): `sudo apt-get install pandoc`
@@ -12,6 +13,7 @@
   - `docx2indesign.py` - Basic converter focusing on paragraph/line breaks
   - `docx2indesign_advanced.py` - Advanced version with formatting preservation, colorful UI
   - `docx_notes.py` - Reads footnote/endnote structure directly from the DOCX XML (preserves the kind distinction pandoc discards); used by the advanced converter
+  - `normalize_docx_styles.py` - Copies style definitions from a reference DOCX into others to unify styling without touching text (swaps only word/styles.xml, asserts content parts byte-identical)
 - **InDesign Scripts** (in `endnotes_scripts/` folder):
   - `notes_converter.jsx` - Converts both footnote (`[^F(n)]`) and endnote (`[^E(n)]`) markers into native InDesign notes
   - `batch_grep_format.jsx` - Runs every formatting GREP (bold/italic/headings/lists/links) in one pass, in dependency order; style names match the template (`H1`-`H4`, `Bold`, etc.)
