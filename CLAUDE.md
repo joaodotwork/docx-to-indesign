@@ -11,8 +11,10 @@
 - **Python Scripts**:
   - `docx2indesign.py` - Basic converter focusing on paragraph/line breaks
   - `docx2indesign_advanced.py` - Advanced version with formatting preservation, colorful UI
+  - `docx_notes.py` - Reads footnote/endnote structure directly from the DOCX XML (preserves the kind distinction pandoc discards); used by the advanced converter
 - **InDesign Scripts** (in `endnotes_scripts/` folder):
-  - `docx_to_indesign_endnotes.jsx` - Main endnote conversion script
+  - `notes_converter.jsx` - Converts both footnote (`[^F(n)]`) and endnote (`[^E(n)]`) markers into native InDesign notes
+  - `docx_to_indesign_endnotes.jsx` - Legacy endnote conversion script (`[^(n)](#fnn)` markers)
   - `endnote_converter_2025.jsx` - Updated converter for InDesign 2025
   - `endnote_improved_v2.jsx` - Improved version with better error handling
   - `endnotes_converter_improved.jsx` - Enhanced converter with better footnote detection

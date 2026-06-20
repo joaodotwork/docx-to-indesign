@@ -10,7 +10,8 @@ This tool helps prepare DOCX files for clean import into InDesign by:
 
 - `docx2indesign.py` — basic converter (paragraph/line break cleanup)
 - `docx2indesign_advanced.py` — advanced converter with formatting markup and a batch UI
-- `endnotes_scripts/` — InDesign JSX and AppleScript scripts for converting endnote markers into real InDesign endnotes
+- `docx_notes.py` — reads footnote/endnote structure directly from the DOCX so the two kinds stay distinct (pandoc merges them)
+- `endnotes_scripts/` — InDesign JSX and AppleScript scripts for converting note markers into real InDesign footnotes/endnotes (`notes_converter.jsx` handles both kinds)
 - `indesign-template/docx2indd-template.indt` — starter InDesign template with paragraph/character styles matching the GREP workflow below
 - `requirements.txt` — Python dependencies
 
@@ -88,7 +89,8 @@ The advanced script adds the following markup that can be processed with InDesig
 - Superscript: `^(text)`
 - Subscript: `~(text)`
 - Headings: `# Heading 1`, `## Heading 2`, etc.
-- Footnotes: `[^1]` with footnote text at the end of the document
+- Footnotes: in-text reference `[^F(n)]`, body `[^Fn]: text` under a `====== FOOTNOTES ======` heading
+- Endnotes: in-text reference `[^E(n)]`, body `[^En]: text` under a `====== ENDNOTES ======` heading
 - Line breaks: `\n` (escaped newline)
 - Links: `[text](url)`
 - Lists:
@@ -135,12 +137,12 @@ After importing the processed text into InDesign (using Unicode UTF-8 encoding),
    - Heading 3: Search for `^###\s+(.+)$` - Change to: `$1` (with Heading 3 paragraph style)
    - Heading 4: Search for `^####\s+(.+)$` - Change to: `$1` (with Heading 4 paragraph style)
 
-8. Endnotes:
-   - Standard format: Search for: `\[\^(\d+)\]` 
-   - Change to: Character style for endnote references (with custom superscript formatting)
-   - Pandoc format with links: Search for: `\[\^\((\d+)\)\]\(#fn\d+\)`
-   - Change to: `$1` (with superscript character style applied)
-   - **For actual InDesign endnotes**: Use the included script `endnotes_scripts/docx_to_indesign_endnotes.jsx`
+8. Footnotes and Endnotes (DOCX inputs):
+   - **For actual InDesign notes (recommended)**: Use the included script `endnotes_scripts/notes_converter.jsx`, which converts both kinds in one pass. See [Footnotes and Endnotes](#footnotes-and-endnotes) below.
+   - To instead format the references as superscript text:
+     - Footnote references: Search for `\[\^F\((\d+)\)\]` — Change to: `$1` (with a superscript character style applied)
+     - Endnote references: Search for `\[\^E\((\d+)\)\]` — Change to: `$1` (with a superscript character style applied)
+   - Legacy markup (HTML/RTF inputs): Search for `\[\^\((\d+)\)\]\(#fn\d+\)` — Change to: `$1`; for actual InDesign endnotes use `endnotes_scripts/docx_to_indesign_endnotes.jsx`
 
 9. Links:
    - Search for: `\[([^\]]+)\]\(([^)]+)\)` 
@@ -177,9 +179,27 @@ If you have trouble with the GREP patterns:
 - Some special formatting might be lost in the conversion process
 - The scripts provide a starting point that you may need to customize for your specific documents
 
-## Using the Endnote Script
+## Footnotes and Endnotes
 
-The `endnotes_scripts/docx_to_indesign_endnotes.jsx` script converts the endnote markers from the Python converter into proper InDesign endnotes:
+For **DOCX** inputs, `docx2indesign_advanced.py` reads the note structure directly from the file (`word/footnotes.xml`, `word/endnotes.xml`, and the reference order in `word/document.xml`) rather than relying on pandoc, which collapses both kinds into a single "footnotes" stream. This means footnotes and endnotes stay distinct in the output:
+
+- Footnote reference `[^F(n)]`, with bodies listed under `====== FOOTNOTES ======`
+- Endnote reference `[^E(n)]`, with bodies listed under `====== ENDNOTES ======`
+
+The number `n` is a stable join key matching each reference to its body; InDesign renumbers the notes itself once they are created.
+
+To convert both kinds into native InDesign notes in one pass, run `endnotes_scripts/notes_converter.jsx`:
+
+1. Process your Word document with `docx2indesign_advanced.py`
+2. Import the resulting text file into InDesign (Unicode UTF-8)
+3. Run the script via File > Scripts > Script Panel
+4. It inserts native footnotes (via `InsertionPoint.footnotes.add()`) and endnotes (via `Story.endnotes.add()`, with a Convert-To-Endnote menu fallback), sets each note's text, and deletes the trailing note sections.
+
+> Note: HTML/RTF inputs cannot carry the footnote/endnote distinction, so they fall back to the legacy `[^(n)](#fnn)` markers handled by the older endnote scripts below.
+
+## Using the Legacy Endnote Script
+
+The `endnotes_scripts/docx_to_indesign_endnotes.jsx` script converts the legacy `[^(1)](#fn1)` endnote markers from the Python converter into proper InDesign endnotes:
 
 1. Process your Word document with `docx2indesign_advanced.py` as usual
 2. Import the resulting text file into InDesign
