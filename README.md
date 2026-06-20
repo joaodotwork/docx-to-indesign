@@ -11,7 +11,8 @@ This tool helps prepare DOCX files for clean import into InDesign by:
 - `docx2indesign.py` — basic converter (paragraph/line break cleanup)
 - `docx2indesign_advanced.py` — advanced converter with formatting markup and a batch UI
 - `docx_notes.py` — reads footnote/endnote structure directly from the DOCX so the two kinds stay distinct (pandoc merges them)
-- `endnotes_scripts/` — InDesign JSX and AppleScript scripts for converting note markers into real InDesign footnotes/endnotes (`notes_converter.jsx` handles both kinds)
+- `endnotes_scripts/` — InDesign JSX and AppleScript scripts: `notes_converter.jsx` (footnotes + endnotes), `batch_grep_format.jsx` (runs every formatting GREP in one pass)
+- `indesign-queries/GREP/` — saved Find/Change queries you can load one at a time from the Find/Change dialog
 - `indesign-template/docx2indd-template.indt` — starter InDesign template with paragraph/character styles matching the GREP workflow below
 - `requirements.txt` — Python dependencies
 
@@ -97,9 +98,43 @@ The advanced script adds the following markup that can be processed with InDesig
   - Bulleted: `* item`
   - Numbered: `1. item`
 
-## InDesign GREP Search/Replace
+## Applying the Markup in InDesign
 
-The GREP steps below assume your document already has the matching character and paragraph styles (Bold, Italic, Heading 1, etc.). The included `indesign-template/docx2indd-template.indt` provides these styles as a starting point — open it (or load its styles into your own document) before running the search/replace steps.
+You have three ways to turn the markup into formatting, from most interactive to fully automatic:
+
+1. **Saved Find/Change queries** (`indesign-queries/GREP/`) — step through each conversion in the Find/Change dialog and watch the result before moving on. Best when you want to follow the changes after import.
+2. **Batch script** (`endnotes_scripts/batch_grep_format.jsx`) — runs every formatting GREP in one pass, in the correct order. Best once you trust the conversions.
+3. **Manual GREP** — type each pattern by hand (reference table below).
+
+All three need your document to already have the matching styles. The included `indesign-template/docx2indd-template.indt` provides them (`Bold`, `Italic`, `Bold Italic`, `Underline`, `Superscript`, `Subscript`, `H1`–`H4`, `Bulleted List`, `Numbered List`, `Hyperlink`) — open it or load its styles before running any of the steps.
+
+### Saved Find/Change Queries
+
+Copy the query files into your InDesign Find/Change queries folder, then restart InDesign:
+
+```bash
+# macOS — adjust the version number to match your install
+cp "indesign-queries/GREP/"*.xml \
+  "$HOME/Library/Preferences/Adobe InDesign/Version 21.0/en_US/Find-Change Queries/GREP/"
+```
+
+They then appear in **Edit > Find/Change > GREP tab > Query** dropdown, prefixed `docx2indd -`. Run them **in this order** so the patterns don't clobber each other (triple markers before double, deepest heading first):
+
+1. `docx2indd - Bold Italic` (`***`)
+2. `docx2indd - Bold` (`**`)
+3. `docx2indd - Underline` (`__`)
+4. `docx2indd - Italic` (`_`)
+5. `docx2indd - Superscript`
+6. `docx2indd - Subscript`
+7. `docx2indd - Heading 1` … `Heading 4`
+8. `docx2indd - Bulleted List`, `docx2indd - Numbered List`
+9. `docx2indd - Links`
+
+Footnotes and endnotes are **not** handled by a query — their bodies have to be moved into the note itself, so use `endnotes_scripts/notes_converter.jsx` for those (see [Footnotes and Endnotes](#footnotes-and-endnotes)).
+
+### Manual GREP Search/Replace
+
+The GREP steps below assume your document already has the matching character and paragraph styles (Bold, Italic, H1, etc.).
 
 After importing the processed text into InDesign (using Unicode UTF-8 encoding), use GREP search/replace to convert the markup to proper formatting:
 

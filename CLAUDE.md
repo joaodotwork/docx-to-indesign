@@ -14,7 +14,9 @@
   - `docx_notes.py` - Reads footnote/endnote structure directly from the DOCX XML (preserves the kind distinction pandoc discards); used by the advanced converter
 - **InDesign Scripts** (in `endnotes_scripts/` folder):
   - `notes_converter.jsx` - Converts both footnote (`[^F(n)]`) and endnote (`[^E(n)]`) markers into native InDesign notes
+  - `batch_grep_format.jsx` - Runs every formatting GREP (bold/italic/headings/lists/links) in one pass, in dependency order; style names match the template (`H1`-`H4`, `Bold`, etc.)
   - `docx_to_indesign_endnotes.jsx` - Legacy endnote conversion script (`[^(n)](#fnn)` markers)
+- **Saved Find/Change Queries** (`indesign-queries/GREP/`): one XML per conversion, `docx2indd - *`, for stepping through changes interactively. Format mirrors InDesign's own query files; `cstyle`/`pstyle` TextAttribute values must match real style names in the doc.
   - `endnote_converter_2025.jsx` - Updated converter for InDesign 2025
   - `endnote_improved_v2.jsx` - Improved version with better error handling
   - `endnotes_converter_improved.jsx` - Enhanced converter with better footnote detection
