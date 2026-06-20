@@ -51,6 +51,8 @@
         { name: "Heading 1",     find: "^#\\s+(.+)$",               style: "H1",            kind: "para" },
         { name: "Bulleted List", find: "^\\*\\s+(.+)$",             style: "Bulleted List", kind: "para" },
         { name: "Numbered List", find: "^\\d+\\.\\s+(.+)$",         style: "Numbered List", kind: "para" },
+        { name: "Block Quote",   find: "^> (.+)$",                  style: "Block Quote",   kind: "para" },
+        { name: "Bibliography",  find: "^\\[BIB\\] (.+)$",          style: "Bibliography",  kind: "para" },
         // Links: strip markup and tag the visible text. The destination URL in
         // group 2 is dropped here; see createHyperlinks below for live links.
         { name: "Links",         find: "\\[([^\\]]+)\\]\\(([^)]+)\\)", style: "Hyperlink", kind: "char" }

@@ -15,3 +15,13 @@ output/
 
 # Third-party reference material (saved web pages, separately licensed)
 reference-code/
+
+# InDesign lock files
+*.idlk
+~*.idlk
+
+# Generated IDML/DOCX may contain document text — never commit.
+# (the empty template IDML is the one exception)
+*.idml
+!indesign-template/*.idml
+*.clean.txt

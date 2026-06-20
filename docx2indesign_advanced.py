@@ -59,11 +59,24 @@ def print_processing(file_index, total_files, filename):
     """Print processing information."""
     print(f"{Colors.BLUE}[{file_index}/{total_files}]{Colors.END} Processing: {Colors.CYAN}{filename}{Colors.END}")
 
-def convert_docx_to_html(docx_path, html_path):
-    """Convert DOCX to HTML using pandoc to preserve formatting."""
+def convert_docx_to_html(docx_path, html_path, source_format=None):
+    """Convert DOCX to HTML using pandoc to preserve formatting.
+
+    Args:
+        docx_path: Input file.
+        html_path: Output HTML path.
+        source_format: Optional pandoc input format. Pass "docx+styles" for
+            DOCX so Word paragraph styles (Block Quote, Bibliography, ...) are
+            carried through as data-custom-style attributes; leave None to let
+            pandoc auto-detect (e.g. for RTF).
+    """
+    cmd = ["pandoc"]
+    if source_format:
+        cmd += ["-f", source_format]
+    cmd += [docx_path, "-o", html_path, "--wrap=none"]
     try:
         result = subprocess.run(
-            ["pandoc", docx_path, "-o", html_path, "--wrap=none"],
+            cmd,
             check=True,
             capture_output=True,
             text=True
@@ -162,6 +175,27 @@ def build_note_sections(notes, formatting_used=None):
     return sections
 
 
+def paragraph_role(para):
+    """Classify a paragraph by its enclosing block element / Word style.
+
+    Relies on pandoc's docx+styles output, which wraps styled paragraphs in
+    <div data-custom-style="..."> (and block quotes additionally in
+    <blockquote>). Returns "quote", "bib", or None.
+    """
+    for ancestor in para.parents:
+        name = getattr(ancestor, "name", None)
+        if name == "blockquote":
+            return "quote"
+        style = ancestor.get("data-custom-style") if hasattr(ancestor, "get") else None
+        if style == "Block Quote":
+            return "quote"
+        if style == "Bibliography":
+            return "bib"
+        if name == "body":
+            break
+    return None
+
+
 def extract_formatted_text(soup, notes=None):
     """Extract text with formatting from HTML.
 
@@ -187,7 +221,9 @@ def extract_formatted_text(soup, notes=None):
         "bullet_lists": False,
         "numbered_lists": False,
         "footnotes": False,
-        "endnotes": False
+        "endnotes": False,
+        "block_quotes": False,
+        "bibliography": False
     }
 
     # When we have authoritative note data from the DOCX, drop pandoc's
@@ -208,8 +244,19 @@ def extract_formatted_text(soup, notes=None):
             formatting_used["headings"].add(heading_level)
             para_text = f"{'#' * heading_level} {process_inline_elements(para, formatting_used)}\n\n"
         else:
-            para_text = f"{process_inline_elements(para, formatting_used)}\n\n"
-        
+            inner = process_inline_elements(para, formatting_used)
+            # Mark paragraphs whose Word style pandoc preserved (via
+            # docx+styles) so InDesign can give them their own paragraph style.
+            role = paragraph_role(para) if inner.strip() else None
+            if role == "quote":
+                formatting_used["block_quotes"] = True
+                para_text = f"> {inner}\n\n"
+            elif role == "bib":
+                formatting_used["bibliography"] = True
+                para_text = f"[BIB] {inner}\n\n"
+            else:
+                para_text = f"{inner}\n\n"
+
         result += para_text
     
     # Process lists
@@ -393,6 +440,10 @@ def generate_formatting_summary(formatting_used):
         other_elements.append("  * Footnotes (ref [^F(n)], body [^Fn]: text)")
     if formatting_used.get("endnotes"):
         other_elements.append("  * Endnotes (ref [^E(n)], body [^En]: text)")
+    if formatting_used.get("block_quotes"):
+        other_elements.append("  * Block Quotes (> text)")
+    if formatting_used.get("bibliography"):
+        other_elements.append("  * Bibliography ([BIB] text)")
     
     if other_elements:
         summary.append("OTHER ELEMENTS:")
@@ -424,7 +475,11 @@ def create_clean_version(input_path, output_dir):
     try:
         # Step 1: Convert DOCX to HTML
         if input_path.suffix.lower() == '.docx':
-            if not convert_docx_to_html(input_path, temp_html_path):
+            # docx+styles preserves Word paragraph style names so block quotes
+            # and bibliography entries can be marked up distinctly.
+            if not convert_docx_to_html(
+                input_path, temp_html_path, source_format="docx+styles"
+            ):
                 return False
             try:
                 notes = extract_notes(input_path)
