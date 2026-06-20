@@ -12,9 +12,11 @@ This tool helps prepare DOCX files for clean import into InDesign by:
 - `docx2indesign_advanced.py` — advanced converter with formatting markup and a batch UI
 - `docx_notes.py` — reads footnote/endnote structure directly from the DOCX so the two kinds stay distinct (pandoc merges them)
 - `normalize_docx_styles.py` — makes paragraph/character style *definitions* consistent across a set of DOCX files without altering any text
+- `docx2idml.py` — **experimental** direct DOCX → InDesign IDML generation (real styles + native footnotes), skipping the import/GREP step
 - `endnotes_scripts/` — InDesign JSX and AppleScript scripts: `notes_converter.jsx` (footnotes + endnotes), `batch_grep_format.jsx` (runs every formatting GREP in one pass)
 - `indesign-queries/GREP/` — saved Find/Change queries you can load one at a time from the Find/Change dialog
 - `indesign-template/docx2indd-template.indt` — starter InDesign template with paragraph/character styles matching the GREP workflow below
+- `indesign-template/docx2indd-template.idml` — IDML export of the template (no content), used by `docx2idml.py`
 - `requirements.txt` — Python dependencies
 
 > **Note:** This repository ships the tooling only. Source `.docx` files and the processed output they generate are not included.
@@ -291,6 +293,36 @@ If the script doesn't convert your endnotes:
 3. Make sure each endnote content section starts with `[#fn1]` and ends with `[↩︎](#fnref1)`
 4. Try running the script with a small test document first
 5. If you continue having issues, you may need to adjust the regex patterns in the script to match your specific document format
+
+## Experimental: Direct IDML Generation
+
+`docx2idml.py` generates a finished InDesign **IDML** straight from a DOCX,
+skipping the import-and-GREP workflow entirely: paragraphs and runs arrive in
+real paragraph/character styles, and footnotes become **native InDesign
+footnotes** with their inline italics/bold preserved.
+
+It works by templating from a real IDML you export from your InDesign template
+(File > Export > IDML). All style ids, document preferences, the spread and the
+text frame come from that package — only the body story is replaced. Style ids
+are read verbatim from the template's `Styles.xml` and never reconstructed,
+because InDesign style names can contain non-breaking spaces and bullets that
+must match exactly.
+
+```bash
+python docx2idml.py chapter.docx \
+  --template indesign-template/docx2indd-template.idml -o chapter.idml
+```
+
+Then **File > Open** the resulting IDML in InDesign.
+
+**Status — experimental.** Content fidelity (styles, native footnotes with
+inline formatting, block quotes, bibliography) is working. Known limitations:
+
+- **Single text frame** — long chapters overset; multi-page autoflow is tracked
+  in [#4](https://github.com/joaodotwork/docx-to-indesign/issues/4). (Smart Text
+  Reflow is intentionally avoided as it conflicts with fixed book pagination.)
+- Endnotes are treated as footnotes.
+- Hyperlinks are styled but not made clickable.
 
 ## License
 
