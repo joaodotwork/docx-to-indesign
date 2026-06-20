@@ -22,6 +22,7 @@ import tempfile
 import argparse
 from pathlib import Path
 from bs4 import BeautifulSoup
+from docx_notes import extract_notes
 import shutil
 from time import sleep
 from datetime import datetime
@@ -80,17 +81,24 @@ def convert_docx_to_html(docx_path, html_path):
         print(f"  {Colors.BLUE}Linux:{Colors.END} apt-get install pandoc")
         return False
 
-def process_html(html_path, output_path):
-    """Process HTML file to clean up line breaks and preserve formatting with markup."""
+def process_html(html_path, output_path, notes=None):
+    """Process HTML file to clean up line breaks and preserve formatting with markup.
+
+    Args:
+        html_path: Path to the intermediate HTML produced by pandoc.
+        output_path: Where to write the InDesign-friendly text.
+        notes: Optional list of note dicts from docx_notes.extract_notes(),
+            used to distinguish footnotes from endnotes (pandoc cannot).
+    """
     # Read the HTML file
     with open(html_path, "r", encoding="utf-8") as f:
         html_content = f.read()
-    
+
     # Parse HTML
     soup = BeautifulSoup(html_content, 'html.parser')
-    
+
     # Process the content
-    processed_text = extract_formatted_text(soup)
+    processed_text = extract_formatted_text(soup, notes)
     
     # Write processed content to output file
     with open(output_path, "w", encoding="utf-8") as f:
@@ -98,10 +106,74 @@ def process_html(html_path, output_path):
     
     print_progress(f"Saved clean file to {Path(output_path).name}")
 
-def extract_formatted_text(soup):
-    """Extract text with formatting from HTML."""
+# Pandoc emits both footnote and endnote references as "[^(N)](#fnN)" with a
+# single sequential numbering. This pattern matches one such marker.
+NOTE_MARKER_RE = re.compile(r"\[\^\((\d+)\)\]\(#fn\d+\)")
+
+# Per-kind marker prefix used in the rewritten output and matched by the
+# InDesign converter: footnotes -> "F", endnotes -> "E".
+NOTE_KIND_PREFIX = {"footnote": "F", "endnote": "E"}
+
+
+def rewrite_note_markers(text, notes):
+    """Rewrite pandoc's generic note markers into type-specific ones.
+
+    "[^(2)](#fn2)" becomes "[^F(2)]" or "[^E(2)]" depending on whether note 2
+    is a footnote or an endnote (per the DOCX). The number is pandoc's
+    sequential note number, which equals the 1-based index in ``notes``.
+    """
+    by_number = {note["n"]: note for note in notes}
+
+    def repl(match):
+        number = int(match.group(1))
+        note = by_number.get(number)
+        if not note:
+            # No mapping (shouldn't happen): leave the original marker intact.
+            return match.group(0)
+        prefix = NOTE_KIND_PREFIX[note["kind"]]
+        return f"[^{prefix}({number})]"
+
+    return NOTE_MARKER_RE.sub(repl, text)
+
+
+def build_note_sections(notes, formatting_used=None):
+    """Build the trailing FOOTNOTES / ENDNOTES blocks from extracted notes.
+
+    Each body is emitted as "[^F<n>]: <text>" (or "[^E<n>]: ...") on its own
+    line, keyed by the same number as the in-text marker so the InDesign
+    converter can pair them. Returns an empty string when there are no notes.
+    """
+    footnotes = [n for n in notes if n["kind"] == "footnote"]
+    endnotes = [n for n in notes if n["kind"] == "endnote"]
+
+    sections = ""
+    if footnotes:
+        if formatting_used is not None:
+            formatting_used["footnotes"] = True
+        sections += "\n\n====== FOOTNOTES ======\n"
+        for note in footnotes:
+            sections += f"[^F{note['n']}]: {note['text']}\n"
+    if endnotes:
+        if formatting_used is not None:
+            formatting_used["endnotes"] = True
+        sections += "\n\n====== ENDNOTES ======\n"
+        for note in endnotes:
+            sections += f"[^E{note['n']}]: {note['text']}\n"
+    return sections
+
+
+def extract_formatted_text(soup, notes=None):
+    """Extract text with formatting from HTML.
+
+    Args:
+        soup: Parsed pandoc HTML.
+        notes: Optional list of note dicts from docx_notes.extract_notes().
+            When provided, the in-text note markers are rewritten to
+            type-specific markers and clean footnote/endnote sections are
+            appended (pandoc itself cannot tell the two kinds apart).
+    """
     result = ""
-    
+
     # Track formatting elements used in the document
     formatting_used = {
         "headings": set(),
@@ -114,9 +186,20 @@ def extract_formatted_text(soup):
         "links": False,
         "bullet_lists": False,
         "numbered_lists": False,
-        "footnotes": False
+        "footnotes": False,
+        "endnotes": False
     }
-    
+
+    # When we have authoritative note data from the DOCX, drop pandoc's
+    # auto-generated notes section. It both lacks the footnote/endnote
+    # distinction and (because its <li> bodies are also picked up by the
+    # paragraph/list loops below) renders every note twice. We rebuild clean,
+    # type-separated sections from the DOCX XML instead.
+    if notes:
+        note_section = soup.find('section', class_='footnotes')
+        if note_section:
+            note_section.decompose()
+
     # Process paragraphs
     for para in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
         # Determine if it's a heading
@@ -140,22 +223,12 @@ def extract_formatted_text(soup):
                 result += f"1. {process_inline_elements(item, formatting_used)}\n"
         result += "\n"
     
-    # Process footnotes (simplified approach)
-    footnotes = []
-    for fn in soup.find_all(class_='footnote'):
-        formatting_used["footnotes"] = True
-        fn_text = process_inline_elements(fn, formatting_used)
-        fn_id = len(footnotes) + 1
-        footnotes.append(fn_text)
-        # Replace footnote with marker
-        fn.replace_with(f"[^{fn_id}]")
-    
-    # Add footnotes at the end if there are any
-    if footnotes:
-        result += "\n\n"
-        for i, fn_text in enumerate(footnotes, 1):
-            result += f"[^{i}]: {fn_text}\n"
-    
+    # Notes: rewrite the generic in-text markers to footnote/endnote-specific
+    # ones and append clean, type-separated note sections built from the DOCX.
+    if notes:
+        result = rewrite_note_markers(result, notes)
+        result += build_note_sections(notes, formatting_used)
+
     # Add formatting summary at the end
     result += "\n\n" + generate_formatting_summary(formatting_used)
     
@@ -317,7 +390,9 @@ def generate_formatting_summary(formatting_used):
     if formatting_used["numbered_lists"]:
         other_elements.append("  * Numbered Lists (1. item)")
     if formatting_used["footnotes"]:
-        other_elements.append("  * Footnotes ([^n])")
+        other_elements.append("  * Footnotes (ref [^F(n)], body [^Fn]: text)")
+    if formatting_used.get("endnotes"):
+        other_elements.append("  * Endnotes (ref [^E(n)], body [^En]: text)")
     
     if other_elements:
         summary.append("OTHER ELEMENTS:")
@@ -342,11 +417,25 @@ def create_clean_version(input_path, output_dir):
     with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as temp:
         temp_html_path = temp.name
     
+    # Notes are read straight from the DOCX so footnotes and endnotes stay
+    # distinguishable (pandoc merges them). Only DOCX carries this structure.
+    notes = []
+
     try:
         # Step 1: Convert DOCX to HTML
         if input_path.suffix.lower() == '.docx':
             if not convert_docx_to_html(input_path, temp_html_path):
                 return False
+            try:
+                notes = extract_notes(input_path)
+                if notes:
+                    fn = sum(1 for n in notes if n["kind"] == "footnote")
+                    en = len(notes) - fn
+                    print_progress(
+                        f"Detected {fn} footnote(s) and {en} endnote(s)"
+                    )
+            except Exception as e:
+                print_progress(f"Could not read notes from DOCX: {e}", False)
         elif input_path.suffix.lower() == '.html':
             # If input is already HTML, just copy it
             with open(input_path, 'rb') as src, open(temp_html_path, 'wb') as dst:
@@ -360,7 +449,7 @@ def create_clean_version(input_path, output_dir):
             return False
         
         # Step 2: Process HTML to extract formatted text
-        process_html(temp_html_path, output_path)
+        process_html(temp_html_path, output_path, notes)
         return True
     
     finally:
