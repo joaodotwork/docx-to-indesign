@@ -15,3 +15,7 @@ output/
 
 # Third-party reference material (saved web pages, separately licensed)
 reference-code/
+
+# InDesign lock files
+*.idlk
+~*.idlk
